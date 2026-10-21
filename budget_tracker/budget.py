@@ -55,14 +55,14 @@ def valid_month(text: str) -> str:
         # Normalise "2026-9" to "2026-09": filtering compares against substr(ts, 1, 7).
         return datetime.strptime(text, "%Y-%m").strftime("%Y-%m")
     except ValueError:
-        raise argparse.ArgumentTypeError(f"month must look like 2026-09, got {text!r}")
+        raise argparse.ArgumentTypeError(f"month must look like 2026-09, got {text!r}") from None
 
 
 def valid_amount(text: str) -> float:
     try:
         value = float(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"amount must be a number, got {text!r}")
+        raise argparse.ArgumentTypeError(f"amount must be a number, got {text!r}") from None
     if not math.isfinite(value):
         raise argparse.ArgumentTypeError(f"amount must be a finite number, got {text!r}")
     value = round(value, 2)  # stored as cents-precision; avoids float drift in totals
@@ -75,7 +75,7 @@ def valid_limit(text: str) -> float:
     try:
         value = float(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"limit must be a number, got {text!r}")
+        raise argparse.ArgumentTypeError(f"limit must be a number, got {text!r}") from None
     if not math.isfinite(value):
         raise argparse.ArgumentTypeError(f"limit must be a finite number, got {text!r}")
     return round(abs(value), 2)
@@ -92,7 +92,7 @@ def valid_date(text: str) -> str:
     try:
         return datetime.strptime(text, "%Y-%m-%d").date().isoformat()
     except ValueError:
-        raise argparse.ArgumentTypeError(f"date must look like 2026-09-01, got {text!r}")
+        raise argparse.ArgumentTypeError(f"date must look like 2026-09-01, got {text!r}") from None
 
 
 def money(x: float) -> str:

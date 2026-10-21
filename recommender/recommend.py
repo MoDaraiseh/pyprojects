@@ -164,7 +164,7 @@ def positive_int(text: str) -> int:
     try:
         value = int(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}")
+        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}") from None
     if value < 1:
         raise argparse.ArgumentTypeError(f"must be at least 1, got {value}")
     return value

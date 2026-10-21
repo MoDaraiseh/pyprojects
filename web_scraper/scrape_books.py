@@ -163,7 +163,7 @@ def positive_int(text: str) -> int:
     try:
         value = int(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}")
+        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}") from None
     if value < 1:
         raise argparse.ArgumentTypeError(f"must be at least 1, got {value}")
     return value
@@ -173,7 +173,7 @@ def non_negative_float(text: str) -> float:
     try:
         value = float(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"expected a number, got {text!r}")
+        raise argparse.ArgumentTypeError(f"expected a number, got {text!r}") from None
     if not (0 <= value < float("inf")):
         raise argparse.ArgumentTypeError(f"must be 0 or more, got {text!r}")
     return value
