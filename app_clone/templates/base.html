@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}snip{% endblock %}</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 640px; margin: 3rem auto;
+           padding: 0 1rem; }
+    h1 a { text-decoration: none; color: inherit; }
+    form { display: flex; flex-direction: column; gap: .6rem; margin: 1.5rem 0; }
+    input { padding: .55rem .7rem; font-size: 1rem; border: 1px solid #8888; border-radius: 6px;
+            background: Canvas; color: CanvasText; }
+    button { padding: .55rem 1rem; font-size: 1rem; border: 0; border-radius: 6px;
+             background: #2563eb; color: #fff; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    .row { display: flex; gap: .6rem; }
+    .row input:first-child { flex: 1; }
+    .card { border: 1px solid #8884; border-radius: 8px; padding: .8rem 1rem; margin: 1rem 0; }
+    .ok { border-color: #16a34a; }
+    .err { color: #dc2626; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid #8883;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+    code { background: #8882; padding: .1rem .35rem; border-radius: 4px; }
+    a { color: #2563eb; }
+    .muted { color: #7778; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <h1><a href="{{ url_for('index') }}">🔗 snip</a></h1>
+  {% block body %}{% endblock %}
+  <p class="muted">A Bitly-style shortener — Flask + SQLite demo.</p>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}stats · /{{ link['code'] }}{% endblock %}
+{% block body %}
+  <div class="card">
+    <div><strong>{{ host }}/{{ link['code'] }}</strong> &rarr;
+      <a href="{{ link['target'] }}">{{ link['target'] }}</a></div>
+    <div class="muted">created {{ link['created_at'] }}</div>
+    <p style="font-size:2rem;margin:.4rem 0 0">{{ total }} click{{ '' if total == 1 else 's' }}</p>
+  </div>
+
+  {% if clicks %}
+    <table>
+      <thead><tr><th>when (UTC)</th><th>referrer</th><th>user agent</th></tr></thead>
+      <tbody>
+      {% for c in clicks %}
+        <tr>
+          <td>{{ c['ts'] }}</td>
+          <td>{{ c['referrer'] or '—' }}</td>
+          <td title="{{ c['ua'] }}">{{ c['ua'] or '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No clicks yet. Share the link and refresh.</p>
+  {% endif %}
+
+  <p><a href="{{ url_for('index') }}">&larr; back</a></p>
+{% endblock %}

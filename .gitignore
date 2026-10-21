@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+*.db
+web_scraper/books.csv
+web_scraper/books.json
+recommender/data/

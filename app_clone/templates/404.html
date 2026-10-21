@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}not found{% endblock %}
+{% block body %}
+  <div class="card err">
+    <strong>404</strong> — no such short link.
+  </div>
+  <p><a href="{{ url_for('index') }}">&larr; make one</a></p>
+{% endblock %}
