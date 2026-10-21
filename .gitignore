@@ -5,3 +5,4 @@ __pycache__/
 web_scraper/books.csv
 web_scraper/books.json
 recommender/data/
+.pytest_cache/

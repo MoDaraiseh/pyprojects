@@ -38,7 +38,10 @@ class Dataset:
         movies_csv = DATA / "movies.csv"
         ratings_csv = DATA / "ratings.csv"
         if not (movies_csv.exists() and ratings_csv.exists()):
-            from build_dataset import build
+            try:  # imported as recommender.recommend
+                from .build_dataset import build
+            except ImportError:  # run as a script: recommender/ is on sys.path
+                from build_dataset import build
             build()
 
         self.movie_ids: list[int] = []
@@ -51,7 +54,8 @@ class Dataset:
                 self.titles[mid] = row["title"]
                 self.genres[mid] = row["genres"].split("|")
 
-        rating_rows = list(csv.DictReader(ratings_csv.open(encoding="utf-8")))
+        with ratings_csv.open(encoding="utf-8") as fh:
+            rating_rows = list(csv.DictReader(fh))
         self.users: list[str] = sorted({r["user"] for r in rating_rows})
 
         self.u_index = {u: i for i, u in enumerate(self.users)}
@@ -123,8 +127,14 @@ class Dataset:
         match = self._resolve_title(title)
         j = self.m_index[match]
         sim = self.item_similarity()[j]
-        order = np.argsort(sim)[::-1][:n]
+        order = [k for k in np.argsort(sim)[::-1] if k != j][:n]  # never "similar to itself"
         return [(self.titles[self.movie_ids[k]], float(sim[k])) for k in order]
+
+    def resolve_user(self, name: str) -> str | None:
+        if name in self.u_index:
+            return name
+        matches = [u for u in self.users if u.lower() == name.lower()]
+        return matches[0] if len(matches) == 1 else None
 
     def _resolve_title(self, title: str) -> int:
         lowered = title.lower()
@@ -150,6 +160,16 @@ def _print_table(header: str, rows: list[tuple[str, float]]) -> None:
         print(f"{i:>2}. {title:<34} {score:6.3f}")
 
 
+def positive_int(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}")
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {value}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
@@ -157,10 +177,10 @@ def main(argv: list[str] | None = None) -> None:
     rec = sub.add_parser("recommend", help="recommend movies for a user")
     rec.add_argument("user")
     rec.add_argument("--model", choices=["cf", "content"], default="cf")
-    rec.add_argument("--n", type=int, default=5)
+    rec.add_argument("--n", type=positive_int, default=5)
     sim = sub.add_parser("similar", help="movies similar to a given title")
     sim.add_argument("title")
-    sim.add_argument("--n", type=int, default=5)
+    sim.add_argument("--n", type=positive_int, default=5)
     args = p.parse_args(argv)
 
     ds = Dataset()
@@ -172,14 +192,17 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.command == "recommend":
-        if args.user not in ds.u_index:
+        user = ds.resolve_user(args.user)
+        if user is None:
             sys.exit(f"unknown user {args.user!r}; known: {', '.join(ds.users)}")
         if args.model == "cf":
-            rows = ds.recommend_cf(args.user, args.n)
-            _print_table(f"Collaborative-filtering picks for {args.user}", rows)
+            rows = ds.recommend_cf(user, args.n)
+            _print_table(f"Collaborative-filtering picks for {user}", rows)
         else:
-            rows = ds.recommend_content(args.user, args.n)
-            _print_table(f"Content-based picks for {args.user}", rows)
+            rows = ds.recommend_content(user, args.n)
+            _print_table(f"Content-based picks for {user}", rows)
+        if not rows:
+            print(f"{user} has rated every movie; nothing left to recommend.")
         return
 
     if args.command == "similar":

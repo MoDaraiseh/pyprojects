@@ -49,15 +49,22 @@ def make_session() -> requests.Session:
     return s
 
 
+def _is_retryable(exc: requests.RequestException) -> bool:
+    # Retry network trouble, 5xx and 429; a 404 or 403 will not fix itself.
+    resp = getattr(exc, "response", None)
+    return resp is None or resp.status_code >= 500 or resp.status_code == 429
+
+
 def get_soup(session: requests.Session, url: str, retries: int = 3) -> BeautifulSoup:
     for attempt in range(1, retries + 1):
         try:
             resp = session.get(url, timeout=15)
             resp.raise_for_status()
-            resp.encoding = resp.apparent_encoding
-            return BeautifulSoup(resp.text, "html.parser")
+            # Pass raw bytes so BeautifulSoup honours the page's <meta charset>;
+            # the server sends no charset header, so resp.text would guess Latin-1.
+            return BeautifulSoup(resp.content, "html.parser")
         except requests.RequestException as exc:
-            if attempt == retries:
+            if attempt == retries or not _is_retryable(exc):
                 raise
             wait = 2 ** attempt
             print(f"  ! {exc} — retrying in {wait}s ({attempt}/{retries})", file=sys.stderr)
@@ -85,14 +92,16 @@ def scrape_detail(session: requests.Session, url: str) -> tuple[str, int]:
     return category, in_stock
 
 
-def scrape(max_pages: int | None, delay: float) -> list[Book]:
+def scrape(max_pages: int | None, delay: float, books: list[Book] | None = None) -> list[Book]:
+    """Scrape into `books` (appending as it goes, so a caller keeps partial
+    results if a network error interrupts the run)."""
     session = make_session()
-    books: list[Book] = []
+    books = books if books is not None else []
     page = 1
     next_url = urljoin(CATALOGUE, "page-1.html")
 
     while next_url:
-        if max_pages and page > max_pages:
+        if max_pages is not None and page > max_pages:
             break
         print(f"page {page}: {next_url}")
         soup = get_soup(session, next_url)
@@ -143,22 +152,47 @@ def summarise(books: list[Book]) -> None:
     cheapest = min(books, key=lambda b: b.price)
     dearest = max(books, key=lambda b: b.price)
     print(f"cheapest          : £{cheapest.price:.2f}  {cheapest.title[:40]}")
-    print(f"most expensive     : £{dearest.price:.2f}  {dearest.title[:40]}")
+    print(f"most expensive    : £{dearest.price:.2f}  {dearest.title[:40]}")
     top3 = sorted(by_cat.items(), key=lambda kv: -kv[1])[:3]
     print("top categories    : " + ", ".join(f"{c} ({n})" for c, n in top3))
     print("=" * 48)
     print("wrote books.csv and books.json")
 
 
+def positive_int(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}")
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {value}")
+    return value
+
+
+def non_negative_float(text: str) -> float:
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number, got {text!r}")
+    if not (0 <= value < float("inf")):
+        raise argparse.ArgumentTypeError(f"must be 0 or more, got {text!r}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--max-pages", type=int, default=None, help="limit number of catalogue pages")
-    p.add_argument("--delay", type=float, default=0.15, help="seconds to sleep between requests")
+    p.add_argument("--max-pages", type=positive_int, default=None, help="limit number of catalogue pages")
+    p.add_argument("--delay", type=non_negative_float, default=0.15, help="seconds to sleep between requests")
     args = p.parse_args(argv)
 
+    books: list[Book] = []
     try:
-        books = scrape(args.max_pages, args.delay)
+        scrape(args.max_pages, args.delay, books)
     except requests.RequestException as exc:
+        if books:
+            save(books)
+            summarise(books)
+            print(f"(partial: stopped after {len(books)} books)", file=sys.stderr)
         sys.exit(f"network error: {exc}\n(are you offline? this scraper needs internet)")
 
     save(books)

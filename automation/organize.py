@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import shutil
 import sys
 from collections import defaultdict
@@ -47,14 +48,27 @@ def category_for(path: Path) -> str:
     return _EXT_TO_CATEGORY.get(path.suffix.lower(), "Other")
 
 
-def unique_destination(dest: Path) -> Path:
-    """Return a path that does not exist yet, adding ' (1)', ' (2)', ... if needed."""
-    if not dest.exists():
+def _key(path: Path) -> str:
+    # normcase: on Windows "A.jpg" and "a.jpg" are the same file.
+    return os.path.normcase(os.path.abspath(path))
+
+
+def unique_destination(dest: Path, claimed: set[str] | None = None) -> Path:
+    """Return a path that does not exist yet and is not in `claimed`,
+    adding ' (1)', ' (2)', ... if needed. `claimed` holds destinations already
+    promised to other files in the same run, so two files are never planned
+    onto the same target (which would overwrite one of them)."""
+    claimed = claimed if claimed is not None else set()
+
+    def free(p: Path) -> bool:
+        return not p.exists() and _key(p) not in claimed
+
+    if free(dest):
         return dest
     stem, suffix, parent = dest.stem, dest.suffix, dest.parent
     for n in range(1, 10_000):
         candidate = parent / f"{stem} ({n}){suffix}"
-        if not candidate.exists():
+        if free(candidate):
             return candidate
     raise RuntimeError(f"could not find a free name for {dest}")
 
@@ -70,11 +84,10 @@ def sort_folder(root: Path, *, by_date: bool, dry_run: bool, recursive: bool) ->
 
     managed = set(CATEGORIES) | {"Other"}
     planned: list[tuple[Path, Path]] = []
+    claimed: set[str] = set()
 
-    for file in iter_files(root, recursive):
+    for file in sorted(iter_files(root, recursive)):
         # Skip files that already live in one of our category folders.
-        if not recursive and file.parent != root:
-            continue
         if any(part in managed for part in file.relative_to(root).parts[:-1]):
             continue
 
@@ -84,9 +97,8 @@ def sort_folder(root: Path, *, by_date: bool, dry_run: bool, recursive: bool) ->
             mtime = datetime.fromtimestamp(file.stat().st_mtime)
             target_dir = target_dir / mtime.strftime("%Y-%m")
 
-        dest = unique_destination(target_dir / file.name)
-        if dest.resolve() == file.resolve():
-            continue
+        dest = unique_destination(target_dir / file.name, claimed)
+        claimed.add(_key(dest))
         planned.append((file, dest))
 
     if not planned:
@@ -94,18 +106,30 @@ def sort_folder(root: Path, *, by_date: bool, dry_run: bool, recursive: bool) ->
         return
 
     width = max(len(str(src.relative_to(root))) for src, _ in planned)
+    moved = failed = 0
     for src, dest in planned:
         rel_src = str(src.relative_to(root))
         rel_dest = str(dest.relative_to(root))
         print(f"  {rel_src:<{width}}  ->  {rel_dest}")
-        if not dry_run:
+        if dry_run:
+            continue
+        try:
             dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.exists():  # appeared since planning: never overwrite
+                raise FileExistsError(f"{dest} already exists")
             shutil.move(str(src), str(dest))
+            moved += 1
+        except OSError as exc:
+            failed += 1
+            print(f"    ! skipped: {exc}", file=sys.stderr)
 
-    verb = "Would move" if dry_run else "Moved"
-    print(f"\n{verb} {len(planned)} file(s).")
     if dry_run:
+        print(f"\nWould move {len(planned)} file(s).")
         print("Re-run without --dry-run to apply.")
+    else:
+        print(f"\nMoved {moved} file(s)." + (f" {failed} could not be moved (see above)." if failed else ""))
+        if failed:
+            sys.exit(1)
 
 
 def sha256(path: Path, chunk: int = 1 << 20) -> str:
@@ -121,34 +145,42 @@ def find_duplicates(root: Path, *, delete: bool, dry_run: bool) -> None:
         sys.exit(f"error: {root} is not a directory")
 
     # First bucket by size (cheap), then hash only the collisions.
+    # Symlinks are skipped: a link "duplicates" its own target, and keeping the
+    # link while deleting the target would destroy the only real copy.
     by_size: dict[int, list[Path]] = defaultdict(list)
     for file in iter_files(root, recursive=True):
+        if file.is_symlink():
+            continue
         by_size[file.stat().st_size].append(file)
 
-    groups: list[list[Path]] = []
+    groups: list[tuple[int, list[Path]]] = []
     for size, files in by_size.items():
         if size == 0 or len(files) < 2:
             continue
         by_hash: dict[str, list[Path]] = defaultdict(list)
         for f in files:
-            by_hash[sha256(f)].append(f)
-        groups.extend(g for g in by_hash.values() if len(g) > 1)
+            try:
+                by_hash[sha256(f)].append(f)
+            except OSError as exc:
+                print(f"  ! cannot read {f.relative_to(root)}: {exc}", file=sys.stderr)
+        groups.extend((size, sorted(g)) for g in by_hash.values() if len(g) > 1)
 
     if not groups:
         print("No duplicate files found.")
         return
 
     reclaimable = 0
-    for i, group in enumerate(sorted(groups, key=lambda g: -g[0].stat().st_size), 1):
-        group.sort()
-        size = group[0].stat().st_size
+    for i, (size, group) in enumerate(sorted(groups, key=lambda sg: (-sg[0], sg[1][0])), 1):
         reclaimable += size * (len(group) - 1)
         print(f"\n[{i}] {len(group)} copies, {size / 1024:.1f} KiB each")
         print(f"    keep:   {group[0].relative_to(root)}")
         for extra in group[1:]:
             print(f"    remove: {extra.relative_to(root)}")
             if delete and not dry_run:
-                extra.unlink()
+                try:
+                    extra.unlink()
+                except OSError as exc:
+                    print(f"    ! could not delete: {exc}", file=sys.stderr)
 
     print(f"\nReclaimable space: {reclaimable / 1_048_576:.2f} MiB")
     if delete and dry_run:

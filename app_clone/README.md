@@ -13,8 +13,11 @@ uv run python app_clone/app.py
 
 - **Shorten** any http(s) URL; bare domains like `example.com/x` are accepted and
   `https://` is added.
-- **Custom aliases** (`/launch`) or a random 6-char code; collisions are retried,
+- **Custom aliases** (`/launch`, `/Launch2026`: letters, digits, `-`, `_`; case-sensitive)
+  or a random 6-char code. Collisions are retried, a taken alias is refused, and
   reserved words (`api`, `static`, …) are blocked.
+- URLs with spaces or control characters are rejected; malformed API requests get
+  a `400` with an error message.
 - `GET /<code>` → **302 redirect**, logging timestamp, referrer and user-agent.
 - `GET /<code>/stats` → click count + a recent-visits table.
 - **JSON API**: `POST /api/shorten` with `{"url": "...", "alias": "..."}` →

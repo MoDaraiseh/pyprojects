@@ -1,8 +1,10 @@
 # 3 · budget_tracker — personal-finance CLI
 
 A single-file expense/income tracker backed by SQLite. Standard library only.
-Amounts are **positive for income, negative for spending**. The database is
-`budget.db` next to the script (override with `--db` or `$BUDGET_DB`).
+Amounts are **positive for income, negative for spending**. They are rounded to
+cents, and zero, `nan` or `inf` are rejected. Categories are case-insensitive, and
+`--month 2026-9` is treated as `2026-09`. The database is `budget.db` next to the
+script (override with `--db` or `$BUDGET_DB`).
 
 ```bash
 uv run python budget_tracker/budget.py add 2500 salary "Sept pay" --date 2026-09-01

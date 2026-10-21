@@ -19,6 +19,7 @@ Standard library only.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sqlite3
 import sys
@@ -51,9 +52,39 @@ def connect(db_path: str) -> sqlite3.Connection:
 
 def valid_month(text: str) -> str:
     try:
-        datetime.strptime(text, "%Y-%m")
+        # Normalise "2026-9" to "2026-09": filtering compares against substr(ts, 1, 7).
+        return datetime.strptime(text, "%Y-%m").strftime("%Y-%m")
     except ValueError:
         raise argparse.ArgumentTypeError(f"month must look like 2026-09, got {text!r}")
+
+
+def valid_amount(text: str) -> float:
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"amount must be a number, got {text!r}")
+    if not math.isfinite(value):
+        raise argparse.ArgumentTypeError(f"amount must be a finite number, got {text!r}")
+    value = round(value, 2)  # stored as cents-precision; avoids float drift in totals
+    if value == 0:
+        raise argparse.ArgumentTypeError("amount must not be zero")
+    return value
+
+
+def valid_limit(text: str) -> float:
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"limit must be a number, got {text!r}")
+    if not math.isfinite(value):
+        raise argparse.ArgumentTypeError(f"limit must be a finite number, got {text!r}")
+    return round(abs(value), 2)
+
+
+def valid_category(text: str) -> str:
+    text = text.strip().lower()
+    if not text:
+        raise argparse.ArgumentTypeError("category must not be blank")
     return text
 
 
@@ -75,11 +106,11 @@ def cmd_add(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
     ts = args.date or date.today().isoformat()
     cur = conn.execute(
         "INSERT INTO transactions (ts, amount, category, note) VALUES (?, ?, ?, ?)",
-        (ts, args.amount, args.category.lower(), args.note or ""),
+        (ts, args.amount, args.category, args.note or ""),
     )
     conn.commit()
-    kind = "income" if args.amount >= 0 else "expense"
-    print(f"#{cur.lastrowid}  {ts}  {kind:<7} {money(args.amount)}  {args.category.lower()}")
+    kind = "income" if args.amount > 0 else "expense"
+    print(f"#{cur.lastrowid}  {ts}  {kind:<7} {money(args.amount)}  {args.category}")
 
 
 def _filtered(conn, month, category):
@@ -146,10 +177,10 @@ def cmd_budget(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
         conn.execute(
             "INSERT INTO budgets (category, monthly) VALUES (?, ?) "
             "ON CONFLICT(category) DO UPDATE SET monthly = excluded.monthly",
-            (args.category.lower(), abs(args.limit)),
+            (args.category, args.limit),
         )
         conn.commit()
-        print(f"budget for {args.category.lower()} set to {money(abs(args.limit))} / month")
+        print(f"budget for {args.category} set to {money(args.limit)} / month")
         return
 
     # action == "check"
@@ -193,15 +224,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     a = sub.add_parser("add", help="record a transaction")
-    a.add_argument("amount", type=float, help="positive = income, negative = expense")
-    a.add_argument("category")
+    a.add_argument("amount", type=valid_amount, help="positive = income, negative = expense")
+    a.add_argument("category", type=valid_category)
     a.add_argument("note", nargs="?", default="")
     a.add_argument("--date", type=valid_date, help="YYYY-MM-DD (default: today)")
     a.set_defaults(func=cmd_add)
 
     l = sub.add_parser("list", help="list transactions")
     l.add_argument("--month", type=valid_month)
-    l.add_argument("--category")
+    l.add_argument("--category", type=valid_category)
     l.set_defaults(func=cmd_list)
 
     r = sub.add_parser("report", help="income/expense summary with a category breakdown")
@@ -210,8 +241,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     b = sub.add_parser("budget", help="set or check monthly category budgets")
     b.add_argument("action", choices=["set", "check"])
-    b.add_argument("category", nargs="?")
-    b.add_argument("limit", nargs="?", type=float)
+    b.add_argument("category", nargs="?", type=valid_category)
+    b.add_argument("limit", nargs="?", type=valid_limit)
     b.add_argument("--month", type=valid_month)
     b.set_defaults(func=cmd_budget)
 

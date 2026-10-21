@@ -34,3 +34,20 @@ Without uv: `python -m venv .venv`, activate it, `pip install requests
 beautifulsoup4 numpy flask`, then use `python` instead of `uv run python`.
 
 Each folder has its own `README.md` with details and example commands.
+
+## Tests
+
+```bash
+uv run pytest
+```
+
+The tests in `tests/` run offline: the scraper is tested against small fake pages,
+and every test uses temporary folders and databases, never your real files.
+
+## Editor setup (VS Code)
+
+Open **this folder** (File → Open Folder → `pyprojects`) so `.vscode/settings.json`
+selects `.venv` as the interpreter. A copy of a file opened from anywhere else,
+such as a GitHub download in your Temp folder, is checked against your system
+Python. You then get "Import "flask"/"requests"/"bs4" could not be resolved"
+warnings even though the project's `.venv` has them all.

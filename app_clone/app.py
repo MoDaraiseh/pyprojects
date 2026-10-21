@@ -27,7 +27,8 @@ from flask import (Flask, abort, g, jsonify, redirect, render_template,
                    request, url_for)
 
 DB_PATH = os.environ.get("SNIP_DB", str(Path(__file__).parent / "snip.db"))
-ALPHABET = string.ascii_lowercase + string.digits
+ALPHABET = string.ascii_lowercase + string.digits  # generated codes
+ALIAS_CHARS = set(string.ascii_letters + string.digits + "-_")  # custom aliases
 RESERVED = {"api", "static", "favicon.ico"}
 
 app = Flask(__name__)
@@ -77,9 +78,13 @@ def init_db() -> None:
 # --------------------------------------------------------------------------- #
 # core logic
 # --------------------------------------------------------------------------- #
-def normalise_url(raw: str) -> str | None:
+def normalise_url(raw: object) -> str | None:
+    if not isinstance(raw, str):
+        return None
     raw = raw.strip()
-    if not raw:
+    # Reject embedded whitespace/control characters (not a valid URL, and they
+    # would end up in the Location header of the redirect).
+    if not raw or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in raw):
         return None
     if "://" not in raw:
         raw = "https://" + raw
@@ -95,7 +100,7 @@ def is_valid_alias(alias: str) -> bool:
     return (
         1 <= len(alias) <= 32
         and alias.lower() not in RESERVED
-        and all(c in ALPHABET + "-_" for c in alias)
+        and all(c in ALIAS_CHARS for c in alias)
     )
 
 
@@ -107,29 +112,34 @@ def generate_code(db: sqlite3.Connection, length: int = 6) -> str:
     return generate_code(db, length + 1)
 
 
-def create_link(raw_url: str, alias: str | None) -> tuple[str | None, str | None]:
+def create_link(raw_url: object, alias: object) -> tuple[str | None, str | None]:
     """Return (code, error). Exactly one is not None."""
     target = normalise_url(raw_url)
     if target is None:
         return None, "That doesn't look like a valid http(s) URL."
+    if alias is not None and not isinstance(alias, str):
+        return None, "Alias must be a string."
 
     db = get_db()
-    if alias:
-        alias = alias.strip()
-        if not is_valid_alias(alias):
-            return None, "Alias must be 1-32 chars: letters, digits, - or _."
-        if db.execute("SELECT 1 FROM links WHERE code = ?", (alias,)).fetchone():
-            return None, f"The alias {alias!r} is already taken."
-        code = alias
-    else:
-        code = generate_code(db)
+    alias = (alias or "").strip()
+    if alias and not is_valid_alias(alias):
+        return None, "Alias must be 1-32 chars: letters, digits, - or _."
 
-    db.execute(
-        "INSERT INTO links (code, target, created_at) VALUES (?, ?, ?)",
-        (code, target, datetime.now(timezone.utc).isoformat(timespec="seconds")),
-    )
-    db.commit()
-    return code, None
+    for _ in range(5):
+        code = alias or generate_code(db)
+        try:
+            db.execute(
+                "INSERT INTO links (code, target, created_at) VALUES (?, ?, ?)",
+                (code, target, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+            )
+            db.commit()
+            return code, None
+        except sqlite3.IntegrityError:
+            # Someone else claimed this code between our check and insert.
+            db.rollback()
+            if alias:
+                return None, f"The alias {alias!r} is already taken."
+    return None, "Could not allocate a short code; please try again."
 
 
 # --------------------------------------------------------------------------- #
@@ -147,7 +157,7 @@ def index():
     recent = db.execute(
         """SELECT l.code, l.target, l.created_at, COUNT(c.id) AS clicks
            FROM links l LEFT JOIN clicks c ON c.code = l.code
-           GROUP BY l.code ORDER BY l.created_at DESC LIMIT 10"""
+           GROUP BY l.code ORDER BY l.created_at DESC, l.rowid DESC LIMIT 10"""
     ).fetchall()
     return render_template("index.html", short_url=short_url, error=error,
                            recent=recent, host=request.host_url.rstrip("/"))
@@ -164,7 +174,7 @@ def follow(code: str):
     db.execute(
         "INSERT INTO clicks (code, ts, referrer, ua) VALUES (?, ?, ?, ?)",
         (code, datetime.now(timezone.utc).isoformat(timespec="seconds"),
-         request.referrer, request.user_agent.string[:300]),
+         (request.referrer or "")[:300] or None, request.user_agent.string[:300]),
     )
     db.commit()
     return redirect(row["target"], code=302)
@@ -187,7 +197,9 @@ def stats(code: str):
 
 @app.post("/api/shorten")
 def api_shorten():
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(error='Send a JSON object like {"url": "...", "alias": "..."}.'), 400
     code, error = create_link(payload.get("url", ""), payload.get("alias"))
     if error:
         return jsonify(error=error), 400
