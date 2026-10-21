@@ -43,6 +43,8 @@ uv run pytest
 
 The tests in `tests/` run offline: the scraper is tested against small fake pages,
 and every test uses temporary folders and databases, never your real files.
+GitHub Actions runs the same suite on Linux and Windows for every push
+(`.github/workflows/tests.yml`).
 
 ## Editor setup (VS Code)
 
