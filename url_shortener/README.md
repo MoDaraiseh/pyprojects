@@ -1,12 +1,12 @@
-# 5 · app_clone — `snip`, a Bitly-style URL shortener
+# 5 · url_shortener — `snip`, a Bitly-style URL shortener
 
 A working clone of the core of Bitly: shorten a link, share the short code,
 track the clicks. Flask + SQLite, server-rendered templates, ~200 lines.
 
 ```bash
-uv run flask --app app_clone/app run --debug     # http://127.0.0.1:5000
+uv run flask --app url_shortener/app run --debug     # http://127.0.0.1:5000
 # or
-uv run python app_clone/app.py
+uv run python url_shortener/app.py
 ```
 
 ## Features
@@ -28,7 +28,7 @@ uv run python app_clone/app.py
 ## Layout
 
 ```
-app_clone/
+url_shortener/
 ├── app.py               # routes, validation, SQLite access
 └── templates/
     ├── base.html        # layout + inline CSS (light/dark aware)

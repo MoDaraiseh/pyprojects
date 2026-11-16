@@ -12,7 +12,7 @@ for folder in (
     "budget_tracker",
     "recommender",
     "web_scraper",
-    "app_clone",
+    "url_shortener",
 ):
     sys.path.insert(0, str(ROOT / folder))
 

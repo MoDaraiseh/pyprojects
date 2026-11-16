@@ -9,7 +9,7 @@ own; the shared `pyproject.toml` pins the handful of dependencies.
 | 2 | [`web_scraper/`](web_scraper/) | Scrapes `books.toscrape.com` to CSV/JSON | `requests`, `beautifulsoup4` |
 | 3 | [`budget_tracker/`](budget_tracker/) | Personal-finance CLI on SQLite | none (stdlib) |
 | 4 | [`recommender/`](recommender/) | Movie recommender: collaborative + content-based | `numpy` |
-| 5 | [`app_clone/`](app_clone/) | `snip` — a Bitly-style URL shortener | `flask` |
+| 5 | [`url_shortener/`](url_shortener/) | `snip` — a Bitly-style URL shortener | `flask` |
 
 ## Setup
 
@@ -27,7 +27,7 @@ uv run python automation/organize.py --help
 uv run python budget_tracker/budget.py report
 uv run python recommender/recommend.py recommend Ava
 uv run python web_scraper/scrape_books.py --max-pages 3
-uv run flask --app app_clone/app run --debug
+uv run flask --app url_shortener/app run --debug
 ```
 
 Without uv: `python -m venv .venv`, activate it, `pip install requests
