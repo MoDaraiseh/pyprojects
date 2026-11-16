@@ -20,7 +20,7 @@ import json
 import re
 import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -45,7 +45,9 @@ class Book:
 
 def make_session() -> requests.Session:
     s = requests.Session()
-    s.headers.update({"User-Agent": "books-toscrape-practice-scraper/1.0 (educational)"})
+    s.headers.update(
+        {"User-Agent": "books-toscrape-practice-scraper/1.0 (educational)"}
+    )
     return s
 
 
@@ -66,8 +68,11 @@ def get_soup(session: requests.Session, url: str, retries: int = 3) -> Beautiful
         except requests.RequestException as exc:
             if attempt == retries or not _is_retryable(exc):
                 raise
-            wait = 2 ** attempt
-            print(f"  ! {exc} — retrying in {wait}s ({attempt}/{retries})", file=sys.stderr)
+            wait = 2**attempt
+            print(
+                f"  ! {exc} — retrying in {wait}s ({attempt}/{retries})",
+                file=sys.stderr,
+            )
             time.sleep(wait)
     raise RuntimeError("unreachable")
 
@@ -88,11 +93,15 @@ def scrape_detail(session: requests.Session, url: str) -> tuple[str, int]:
     crumbs = soup.select("ul.breadcrumb li a")
     category = crumbs[-1].get_text(strip=True) if len(crumbs) >= 3 else "Unknown"
     availability = soup.select_one("p.availability")
-    in_stock = parse_stock(availability.get_text(" ", strip=True)) if availability else 0
+    in_stock = (
+        parse_stock(availability.get_text(" ", strip=True)) if availability else 0
+    )
     return category, in_stock
 
 
-def scrape(max_pages: int | None, delay: float, books: list[Book] | None = None) -> list[Book]:
+def scrape(
+    max_pages: int | None, delay: float, books: list[Book] | None = None
+) -> list[Book]:
     """Scrape into `books` (appending as it goes, so a caller keeps partial
     results if a network error interrupts the run)."""
     session = make_session()
@@ -112,7 +121,9 @@ def scrape(max_pages: int | None, delay: float, books: list[Book] | None = None)
             detail_url = urljoin(next_url, link["href"])
             price = parse_price(article.select_one("p.price_color").get_text())
             rating_cls = article.select_one("p.star-rating")["class"]
-            rating = next((_RATING_WORDS[c] for c in rating_cls if c in _RATING_WORDS), 0)
+            rating = next(
+                (_RATING_WORDS[c] for c in rating_cls if c in _RATING_WORDS), 0
+            )
 
             category, in_stock = scrape_detail(session, detail_url)
             books.append(Book(title, price, rating, in_stock, category, detail_url))
@@ -128,7 +139,9 @@ def scrape(max_pages: int | None, delay: float, books: list[Book] | None = None)
 
 def save(books: list[Book]) -> None:
     rows = [asdict(b) for b in books]
-    (HERE / "books.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
+    (HERE / "books.json").write_text(
+        json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     with (HERE / "books.csv").open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(Book.__annotations__))
         writer.writeheader()
@@ -163,7 +176,9 @@ def positive_int(text: str) -> int:
     try:
         value = int(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"expected a whole number, got {text!r}"
+        ) from None
     if value < 1:
         raise argparse.ArgumentTypeError(f"must be at least 1, got {value}")
     return value
@@ -180,9 +195,21 @@ def non_negative_float(text: str) -> float:
 
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--max-pages", type=positive_int, default=None, help="limit number of catalogue pages")
-    p.add_argument("--delay", type=non_negative_float, default=0.15, help="seconds to sleep between requests")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--max-pages",
+        type=positive_int,
+        default=None,
+        help="limit number of catalogue pages",
+    )
+    p.add_argument(
+        "--delay",
+        type=non_negative_float,
+        default=0.15,
+        help="seconds to sleep between requests",
+    )
     args = p.parse_args(argv)
 
     books: list[Book] = []
@@ -193,7 +220,9 @@ def main(argv: list[str] | None = None) -> None:
             save(books)
             summarise(books)
             print(f"(partial: stopped after {len(books)} books)", file=sys.stderr)
-        sys.exit(f"network error: {exc}\n(are you offline? this scraper needs internet)")
+        sys.exit(
+            f"network error: {exc}\n(are you offline? this scraper needs internet)"
+        )
 
     save(books)
     summarise(books)

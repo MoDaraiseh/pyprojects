@@ -1,6 +1,5 @@
-import pytest
-
 import app as snip
+import pytest
 
 
 @pytest.fixture
@@ -19,13 +18,23 @@ def test_non_object_json_is_400(client, body):
     assert r.status_code == 400
 
 
-@pytest.mark.parametrize("payload", [{"url": 123}, {"url": None}, {"url": "example.com", "alias": 7}])
+@pytest.mark.parametrize(
+    "payload", [{"url": 123}, {"url": None}, {"url": "example.com", "alias": 7}]
+)
 def test_wrong_types_are_400(client, payload):
     assert shorten(client, **payload).status_code == 400
 
 
-@pytest.mark.parametrize("url", ["exa mple.com/x", "https://example.com/a\nb", "javascript:alert(1)",
-                                 "ftp://example.com", "localhost"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "exa mple.com/x",
+        "https://example.com/a\nb",
+        "javascript:alert(1)",
+        "ftp://example.com",
+        "localhost",
+    ],
+)
 def test_invalid_urls_rejected(client, url):
     assert shorten(client, url=url).status_code == 400
 
@@ -33,10 +42,18 @@ def test_invalid_urls_rejected(client, url):
 def test_uppercase_alias_allowed_and_redirects(client):
     r = shorten(client, url="example.com/launch", alias="Launch2026")
     assert r.status_code == 201, r.get_json()
-    r = client.get("/Launch2026", headers={"Referer": "https://ref.example/" + "x" * 1000})
-    assert r.status_code == 302 and r.headers["Location"] == "https://example.com/launch"
+    r = client.get(
+        "/Launch2026", headers={"Referer": "https://ref.example/" + "x" * 1000}
+    )
+    assert (
+        r.status_code == 302 and r.headers["Location"] == "https://example.com/launch"
+    )
     with snip.app.app_context():
-        ref = snip.get_db().execute("SELECT referrer FROM clicks WHERE code='Launch2026'").fetchone()[0]
+        ref = (
+            snip.get_db()
+            .execute("SELECT referrer FROM clicks WHERE code='Launch2026'")
+            .fetchone()[0]
+        )
     assert len(ref) == 300
 
 

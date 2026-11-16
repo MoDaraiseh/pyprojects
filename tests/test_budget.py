@@ -1,8 +1,7 @@
 import argparse
 
-import pytest
-
 import budget
+import pytest
 
 
 def run(tmp_path, *args):

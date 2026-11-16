@@ -55,16 +55,22 @@ def valid_month(text: str) -> str:
         # Normalise "2026-9" to "2026-09": filtering compares against substr(ts, 1, 7).
         return datetime.strptime(text, "%Y-%m").strftime("%Y-%m")
     except ValueError:
-        raise argparse.ArgumentTypeError(f"month must look like 2026-09, got {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"month must look like 2026-09, got {text!r}"
+        ) from None
 
 
 def valid_amount(text: str) -> float:
     try:
         value = float(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"amount must be a number, got {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"amount must be a number, got {text!r}"
+        ) from None
     if not math.isfinite(value):
-        raise argparse.ArgumentTypeError(f"amount must be a finite number, got {text!r}")
+        raise argparse.ArgumentTypeError(
+            f"amount must be a finite number, got {text!r}"
+        )
     value = round(value, 2)  # stored as cents-precision; avoids float drift in totals
     if value == 0:
         raise argparse.ArgumentTypeError("amount must not be zero")
@@ -75,7 +81,9 @@ def valid_limit(text: str) -> float:
     try:
         value = float(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"limit must be a number, got {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"limit must be a number, got {text!r}"
+        ) from None
     if not math.isfinite(value):
         raise argparse.ArgumentTypeError(f"limit must be a finite number, got {text!r}")
     return round(abs(value), 2)
@@ -92,7 +100,9 @@ def valid_date(text: str) -> str:
     try:
         return datetime.strptime(text, "%Y-%m-%d").date().isoformat()
     except ValueError:
-        raise argparse.ArgumentTypeError(f"date must look like 2026-09-01, got {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"date must look like 2026-09-01, got {text!r}"
+        ) from None
 
 
 def money(x: float) -> str:
@@ -136,7 +146,9 @@ def cmd_list(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
     running = 0.0
     for r in rows:
         running += r["amount"]
-        print(f"{r['id']:>4}  {r['ts']:<10}  {money(r['amount'])}  {r['category']:<14}  {r['note']}")
+        print(
+            f"{r['id']:>4}  {r['ts']:<10}  {money(r['amount'])}  {r['category']:<14}  {r['note']}"
+        )
     print("-" * 64)
     print(f"{'':>4}  {'total':<10}  {money(running)}")
 
@@ -160,7 +172,9 @@ def cmd_report(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
     spend_by_cat: dict[str, float] = {}
     for r in rows:
         if r["amount"] < 0:
-            spend_by_cat[r["category"]] = spend_by_cat.get(r["category"], 0.0) + -r["amount"]
+            spend_by_cat[r["category"]] = (
+                spend_by_cat.get(r["category"], 0.0) + -r["amount"]
+            )
 
     if spend_by_cat:
         print("\nspending by category")
@@ -185,7 +199,9 @@ def cmd_budget(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
 
     # action == "check"
     month = args.month or date.today().strftime("%Y-%m")
-    budgets = conn.execute("SELECT category, monthly FROM budgets ORDER BY category").fetchall()
+    budgets = conn.execute(
+        "SELECT category, monthly FROM budgets ORDER BY category"
+    ).fetchall()
     if not budgets:
         print("no budgets set — try:  budget.py budget set groceries 400")
         return
@@ -212,30 +228,38 @@ def cmd_delete(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
         sys.exit(f"no transaction with id {args.id}")
     conn.execute("DELETE FROM transactions WHERE id = ?", (args.id,))
     conn.commit()
-    print(f"deleted #{row['id']}  {row['ts']}  {money(row['amount'])}  {row['category']}")
+    print(
+        f"deleted #{row['id']}  {row['ts']}  {money(row['amount'])}  {row['category']}"
+    )
 
 
 # --------------------------------------------------------------------------- #
 # arg parsing
 # --------------------------------------------------------------------------- #
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--db", default=DEFAULT_DB, help="path to the SQLite database")
     sub = p.add_subparsers(dest="command", required=True)
 
     a = sub.add_parser("add", help="record a transaction")
-    a.add_argument("amount", type=valid_amount, help="positive = income, negative = expense")
+    a.add_argument(
+        "amount", type=valid_amount, help="positive = income, negative = expense"
+    )
     a.add_argument("category", type=valid_category)
     a.add_argument("note", nargs="?", default="")
     a.add_argument("--date", type=valid_date, help="YYYY-MM-DD (default: today)")
     a.set_defaults(func=cmd_add)
 
-    l = sub.add_parser("list", help="list transactions")
-    l.add_argument("--month", type=valid_month)
-    l.add_argument("--category", type=valid_category)
-    l.set_defaults(func=cmd_list)
+    ls = sub.add_parser("list", help="list transactions")
+    ls.add_argument("--month", type=valid_month)
+    ls.add_argument("--category", type=valid_category)
+    ls.set_defaults(func=cmd_list)
 
-    r = sub.add_parser("report", help="income/expense summary with a category breakdown")
+    r = sub.add_parser(
+        "report", help="income/expense summary with a category breakdown"
+    )
     r.add_argument("--month", type=valid_month)
     r.set_defaults(func=cmd_report)
 
@@ -254,7 +278,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    if args.command == "budget" and args.action == "set" and (args.category is None or args.limit is None):
+    if (
+        args.command == "budget"
+        and args.action == "set"
+        and (args.category is None or args.limit is None)
+    ):
         sys.exit("usage: budget.py budget set <category> <limit>")
 
     conn = connect(args.db)

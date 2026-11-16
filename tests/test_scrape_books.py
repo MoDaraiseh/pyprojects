@@ -1,9 +1,9 @@
 """Offline scraper tests: a fake session serves tiny HTML pages; no network."""
+
 import argparse
 
 import pytest
 import requests
-
 import scrape_books as sb
 
 LIST_PAGE = """<html><head><meta charset="utf-8"></head><body>
@@ -43,7 +43,11 @@ class FakeSession:
         if "book_" in url:
             return FakeResponse(DETAIL_PAGE)
         n = int(url.rsplit("page-", 1)[1].split(".")[0])
-        nxt = f'<li class="next"><a href="page-{n + 1}.html">next</a></li>' if n < self.pages else ""
+        nxt = (
+            f'<li class="next"><a href="page-{n + 1}.html">next</a></li>'
+            if n < self.pages
+            else ""
+        )
         return FakeResponse(LIST_PAGE.format(next=nxt))
 
 
@@ -55,8 +59,14 @@ def no_sleep(monkeypatch):
 def test_parses_book_with_utf8_pound_sign(monkeypatch):
     monkeypatch.setattr(sb, "make_session", lambda: FakeSession(pages=1))
     [book] = sb.scrape(None, 0)
-    assert book == sb.Book("A Light in the Attic", 51.77, 3, 22, "Poetry",
-                           "https://books.toscrape.com/catalogue/book_1/index.html")
+    assert book == sb.Book(
+        "A Light in the Attic",
+        51.77,
+        3,
+        22,
+        "Poetry",
+        "https://books.toscrape.com/catalogue/book_1/index.html",
+    )
 
 
 def test_max_pages_limits_pages(monkeypatch):
@@ -88,13 +98,19 @@ def test_404_is_not_retried():
 def test_503_is_retried():
     session = FakeSession(fail_on="page-1", status=503)
     with pytest.raises(requests.HTTPError):
-        sb.get_soup(session, "https://books.toscrape.com/catalogue/page-1.html", retries=3)
+        sb.get_soup(
+            session, "https://books.toscrape.com/catalogue/page-1.html", retries=3
+        )
     assert len(session.calls) == 3
 
 
 def test_partial_results_saved_on_network_error(monkeypatch, tmp_path):
     monkeypatch.setattr(sb, "HERE", tmp_path)
-    monkeypatch.setattr(sb, "make_session", lambda: FakeSession(pages=3, fail_on="page-2", status=0))
+    monkeypatch.setattr(
+        sb, "make_session", lambda: FakeSession(pages=3, fail_on="page-2", status=0)
+    )
     with pytest.raises(SystemExit):
         sb.main(["--delay", "0"])
-    assert "A Light in the Attic" in (tmp_path / "books.json").read_text(encoding="utf-8")
+    assert "A Light in the Attic" in (tmp_path / "books.json").read_text(
+        encoding="utf-8"
+    )

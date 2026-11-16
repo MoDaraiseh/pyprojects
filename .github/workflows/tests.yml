@@ -27,5 +27,8 @@ jobs:
       # Installs Python (per requires-python) and the exact locked dependencies.
       - run: uv sync --frozen
 
+      - name: ruff
+        run: uv run --frozen ruff check . && uv run --frozen ruff format --check .
+
       # -rs lists any skipped test; -W error turns warnings into failures.
       - run: uv run --frozen pytest -rs -W error

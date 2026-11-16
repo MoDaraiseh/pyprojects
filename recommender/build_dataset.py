@@ -57,9 +57,7 @@ def build() -> None:
             w.writerow([i, title, "|".join(genres)])
 
     # hidden per-user genre affinity in [-1.5, 1.5]
-    affinity = {
-        u: {g: rng.uniform(-1.5, 1.5) for g in all_genres} for u in USERS
-    }
+    affinity = {u: {g: rng.uniform(-1.5, 1.5) for g in all_genres} for u in USERS}
 
     with (DATA / "ratings.csv").open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
@@ -71,11 +69,13 @@ def build() -> None:
                 genres = MOVIES[mid - 1][1]
                 base = 3.0 + sum(affinity[u][g] for g in genres) / len(genres)
                 score = base + rng.gauss(0, 0.4)
-                rating = min(5.0, max(1.0, round(score * 2) / 2))  # clamp to 1..5, .5 steps
+                rating = min(
+                    5.0, max(1.0, round(score * 2) / 2)
+                )  # clamp to 1..5, .5 steps
                 w.writerow([u, mid, rating])
 
-    print(f"wrote {DATA/'movies.csv'} ({len(MOVIES)} movies)")
-    print(f"wrote {DATA/'ratings.csv'}")
+    print(f"wrote {DATA / 'movies.csv'} ({len(MOVIES)} movies)")
+    print(f"wrote {DATA / 'ratings.csv'}")
 
 
 if __name__ == "__main__":

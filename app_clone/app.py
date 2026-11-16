@@ -19,12 +19,11 @@ import os
 import secrets
 import sqlite3
 import string
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import (Flask, abort, g, jsonify, redirect, render_template,
-                   request, url_for)
+from flask import Flask, abort, g, jsonify, redirect, render_template, request, url_for
 
 DB_PATH = os.environ.get("SNIP_DB", str(Path(__file__).parent / "snip.db"))
 ALPHABET = string.ascii_lowercase + string.digits  # generated codes
@@ -130,7 +129,7 @@ def create_link(raw_url: object, alias: object) -> tuple[str | None, str | None]
         try:
             db.execute(
                 "INSERT INTO links (code, target, created_at) VALUES (?, ?, ?)",
-                (code, target, datetime.now(timezone.utc).isoformat(timespec="seconds")),
+                (code, target, datetime.now(UTC).isoformat(timespec="seconds")),
             )
             db.commit()
             return code, None
@@ -149,7 +148,9 @@ def create_link(raw_url: object, alias: object) -> tuple[str | None, str | None]
 def index():
     short_url = error = None
     if request.method == "POST":
-        code, error = create_link(request.form.get("url", ""), request.form.get("alias") or None)
+        code, error = create_link(
+            request.form.get("url", ""), request.form.get("alias") or None
+        )
         if code:
             short_url = request.host_url.rstrip("/") + url_for("follow", code=code)
 
@@ -159,8 +160,13 @@ def index():
            FROM links l LEFT JOIN clicks c ON c.code = l.code
            GROUP BY l.code ORDER BY l.created_at DESC, l.rowid DESC LIMIT 10"""
     ).fetchall()
-    return render_template("index.html", short_url=short_url, error=error,
-                           recent=recent, host=request.host_url.rstrip("/"))
+    return render_template(
+        "index.html",
+        short_url=short_url,
+        error=error,
+        recent=recent,
+        host=request.host_url.rstrip("/"),
+    )
 
 
 @app.route("/<code>")
@@ -173,8 +179,12 @@ def follow(code: str):
         abort(404)
     db.execute(
         "INSERT INTO clicks (code, ts, referrer, ua) VALUES (?, ?, ?, ?)",
-        (code, datetime.now(timezone.utc).isoformat(timespec="seconds"),
-         (request.referrer or "")[:300] or None, request.user_agent.string[:300]),
+        (
+            code,
+            datetime.now(UTC).isoformat(timespec="seconds"),
+            (request.referrer or "")[:300] or None,
+            request.user_agent.string[:300],
+        ),
     )
     db.commit()
     return redirect(row["target"], code=302)
@@ -190,16 +200,25 @@ def stats(code: str):
         "SELECT ts, referrer, ua FROM clicks WHERE code = ? ORDER BY ts DESC LIMIT 50",
         (code,),
     ).fetchall()
-    total = db.execute("SELECT COUNT(*) FROM clicks WHERE code = ?", (code,)).fetchone()[0]
-    return render_template("stats.html", link=link, clicks=clicks, total=total,
-                           host=request.host_url.rstrip("/"))
+    total = db.execute(
+        "SELECT COUNT(*) FROM clicks WHERE code = ?", (code,)
+    ).fetchone()[0]
+    return render_template(
+        "stats.html",
+        link=link,
+        clicks=clicks,
+        total=total,
+        host=request.host_url.rstrip("/"),
+    )
 
 
 @app.post("/api/shorten")
 def api_shorten():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
-        return jsonify(error='Send a JSON object like {"url": "...", "alias": "..."}.'), 400
+        return jsonify(
+            error='Send a JSON object like {"url": "...", "alias": "..."}.'
+        ), 400
     code, error = create_link(payload.get("url", ""), payload.get("alias"))
     if error:
         return jsonify(error=error), 400

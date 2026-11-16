@@ -65,7 +65,9 @@ class Dataset:
         # user x movie rating matrix, NaN where unrated
         self.R = np.full((len(self.users), len(self.movie_ids)), np.nan)
         for r in rating_rows:
-            self.R[self.u_index[r["user"]], self.m_index[int(r["movie_id"])]] = float(r["rating"])
+            self.R[self.u_index[r["user"]], self.m_index[int(r["movie_id"])]] = float(
+                r["rating"]
+            )
 
         # movie x genre indicator matrix
         self.G = np.zeros((len(self.movie_ids), len(self.all_genres)))
@@ -127,7 +129,9 @@ class Dataset:
         match = self._resolve_title(title)
         j = self.m_index[match]
         sim = self.item_similarity()[j]
-        order = [k for k in np.argsort(sim)[::-1] if k != j][:n]  # never "similar to itself"
+        order = [k for k in np.argsort(sim)[::-1] if k != j][
+            :n
+        ]  # never "similar to itself"
         return [(self.titles[self.movie_ids[k]], float(sim[k])) for k in order]
 
     def resolve_user(self, name: str) -> str | None:
@@ -146,8 +150,10 @@ class Dataset:
             return partial[0]
         if not partial:
             sys.exit(f"no movie matching {title!r}")
-        sys.exit("ambiguous title; did you mean:\n  " +
-                 "\n  ".join(self.titles[m] for m in partial))
+        sys.exit(
+            "ambiguous title; did you mean:\n  "
+            + "\n  ".join(self.titles[m] for m in partial)
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -164,14 +170,18 @@ def positive_int(text: str) -> int:
     try:
         value = int(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"expected a whole number, got {text!r}") from None
+        raise argparse.ArgumentTypeError(
+            f"expected a whole number, got {text!r}"
+        ) from None
     if value < 1:
         raise argparse.ArgumentTypeError(f"must be at least 1, got {value}")
     return value
 
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("users", help="list users in the dataset")
     rec = sub.add_parser("recommend", help="recommend movies for a user")
