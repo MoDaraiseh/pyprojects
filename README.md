@@ -1,5 +1,7 @@
 # pyprojects
 
+[![tests](https://github.com/MoDaraiseh/pyprojects/actions/workflows/tests.yml/badge.svg)](https://github.com/MoDaraiseh/pyprojects/actions/workflows/tests.yml)
+
 Five small, self-contained Python projects in one repo. Each folder runs on its
 own; the shared `pyproject.toml` pins the handful of dependencies.
 
