@@ -46,14 +46,6 @@ and every test uses temporary folders and databases, never your real files.
 GitHub Actions runs the same suite on Linux and Windows for every push
 (`.github/workflows/tests.yml`).
 
-## Editor setup (VS Code)
-
-Open **this folder** (File → Open Folder → `pyprojects`) so `.vscode/settings.json`
-selects `.venv` as the interpreter. A copy of a file opened from anywhere else,
-such as a GitHub download in your Temp folder, is checked against your system
-Python. You then get "Import "flask"/"requests"/"bs4" could not be resolved"
-warnings even though the project's `.venv` has them all.
-
 ## License
 
 MIT. See [LICENSE](LICENSE).

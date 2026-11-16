@@ -6,3 +6,6 @@ web_scraper/books.csv
 web_scraper/books.json
 recommender/data/
 .pytest_cache/
+
+# Personal editor/agent config
+.claude/
