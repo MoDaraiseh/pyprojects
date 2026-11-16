@@ -61,7 +61,7 @@ def test_dupes_ignores_symlinks_so_real_file_survives(tmp_path):
     link = tmp_path / "a_link.jpg"  # sorts first: would have been "kept"
     try:
         os.symlink(real, link)
-    except OSError, NotImplementedError:
+    except (OSError, NotImplementedError):
         pytest.skip("symlinks not permitted here")
     organize.find_duplicates(tmp_path, delete=True, dry_run=False)
     assert real.read_text(encoding="utf-8") == "only copy"

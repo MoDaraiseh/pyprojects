@@ -19,7 +19,8 @@ This repo uses [uv](https://docs.astral.sh/uv/). From the repo root:
 uv sync
 ```
 
-That creates `.venv/` with Python 3.14 and the dependencies. Then run anything
+That creates `.venv/` with Python 3.12 or newer (uv downloads one if none is
+installed) and the dependencies. Then run anything
 with `uv run python <path>`, e.g.:
 
 ```bash
@@ -43,7 +44,8 @@ uv run pytest
 
 The tests in `tests/` run offline: the scraper is tested against small fake pages,
 and every test uses temporary folders and databases, never your real files.
-GitHub Actions runs the same suite on Linux and Windows for every push
+GitHub Actions runs the same suite, plus ruff, on Linux and Windows with
+Python 3.12 and 3.14 for every push
 (`.github/workflows/tests.yml`).
 
 ## License

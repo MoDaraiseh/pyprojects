@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        python-version: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -24,8 +25,8 @@ jobs:
         with:
           enable-cache: true
 
-      # Installs Python (per requires-python) and the exact locked dependencies.
-      - run: uv sync --frozen
+      # Installs that Python version and the exact locked dependencies.
+      - run: uv sync --frozen --python ${{ matrix.python-version }}
 
       - name: ruff
         run: uv run --frozen ruff check . && uv run --frozen ruff format --check .
